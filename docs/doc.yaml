@@ -1,0 +1,301 @@
+project:
+  name: WhisperTunnel
+  description: A minimal vpn project in python
+  tagline: "A minimal, educational VPN tunnel in Python using TUN and AES-GCM"
+  intent: learning-first, not production
+  primary_goal: "Create a working encrypted tunnel that forwards IP packets between client and server via TUN devices"
+  success_criteria:
+    - Client sends IP packets into TUN, packets appear on server TUN after decryption
+    - Reverse path works
+    - Ping passes between client namespace and server namespace through the tunnel
+  constraints:
+    - Linux only
+    - Requires root for TUN and routing
+    - Single client for MVP
+    
+  status_marker:
+    # Flip these values to "done" as you progress.
+    values: ["todo","doing","done"]
+    file_flag: "# STATUS: <todo|doing|done>"
+
+environment:
+  runtime:
+    python: "3.10+"
+    os: "Linux with /dev/net/tun"
+  dependencies:
+    system: ["iproute2", "iptables or nftables", "sudo", "setcap if needed"]
+    python: ["cryptography", "pyroute2 or pytun (optional for helpers)"]
+  security_basics:
+    - Use AES-GCM from cryptography.hazmat.primitives.ciphers.aead
+    - 32-byte symmetric key, random 12-byte nonce per packet
+    - Refuse packets on auth failure
+  ports_and_ips:
+    transport:
+      proto: "TCP for MVP, UDP later"
+      server_host: "127.0.0.1"
+      server_port: 5555
+    tun:
+      client_ip: "10.8.0.2/24"
+      server_ip: "10.8.0.1/24"
+      device_names: ["tun0 on both ends for MVP"]
+
+directory_structure:
+  tree: |
+    custom_vpn/
+    client/
+      client.py        # STATUS: todo
+      tunnel.py        # STATUS: todo
+      crypto.py        # STATUS: todo
+      config.json      # STATUS: todo
+    server/
+      server.py        # STATUS: todo
+      tunnel.py        # STATUS: todo
+      crypto.py        # STATUS: todo
+      config.json      # STATUS: todo
+    common/
+      utils.py         # STATUS: todo
+      auth.py          # STATUS: todo
+      protocol.py      # STATUS: todo
+      constants.py     # STATUS: todo
+    tests/
+      test_crypto.py   # STATUS: todo
+      test_tunnel.py   # STATUS: todo
+      test_end2end.py  # STATUS: todo
+    docs/
+      design.md        # STATUS: todo
+    requirements.txt   # STATUS: todo
+
+
+components:
+  client_py:
+    role: "Orchestrate client side; open TUN, connect to server, encrypt outbound packets, decrypt inbound packets"
+    io:
+      input: "Bytes from TUN"
+      output: "Ciphertext to server socket"
+    invariants:
+      - "Never reuse nonces"
+      - "Drop on decrypt errors"
+    status: todo
+  server_py:
+    role: "Accept client, decrypt inbound, write to TUN, read from TUN, encrypt back"
+    io:
+      input: "Ciphertext from client, plaintext from TUN"
+      output: "Plaintext to TUN, ciphertext to client"
+    forwarding_note: "MVP keeps both TUNs in same host via namespaces; add NAT later"
+    status: todo
+  tunnel_py:
+    role: "Create and configure TUN device, expose read_packet and write_packet, set MTU"
+    details:
+      dev_path: "/dev/net/tun"
+      flags: "IFF_TUN | IFF_NO_PI"
+    status: todo
+  crypto_py:
+    role: "Provide encrypt(plaintext, key) and decrypt(ciphertext, key); AES-GCM"
+    contract:
+      - "Return bytes"
+      - "Raise on auth failure"
+    status: todo
+  configs:
+    client_json:
+      fields: ["server_host","server_port","key_base64","tun_addr","mtu"]
+    server_json:
+      fields: ["bind_host","bind_port","key_base64","tun_addr","mtu","allow_subnet"]
+    status: todo
+  scripts:
+    netns_setup_sh:
+      role: "Create client and server network namespaces, veth pair, assign IPs, bring up"
+      status: todo
+    server_nat_sh:
+      role: "Enable IP forwarding and NAT when exiting to internet"
+      status: todo
+
+milestones:
+  - id: M0_setup
+    title: "Scaffold and install"
+    status: todo
+    acceptance:
+      - "Repo exists, deps installed, tests run"
+  - id: M1_local_tun_loop
+    title: "Single-host TUN loopback smoke"
+    status: todo
+    acceptance:
+      - "Read a packet from TUN and write it back unmodified"
+  - id: M2_encrypted_tunnel_ns
+    title: "Encrypted tunnel between two namespaces on one machine"
+    status: todo
+    acceptance:
+      - "Ping from client ns to server ns via tunnel succeeds"
+  - id: M3_nat_to_internet
+    title: "Optional NAT to the internet via server"
+    status: todo
+    acceptance:
+      - "curl from client ns to an external IP works through tunnel"
+
+tasks:
+  - id: T00_repo_bootstrap
+    title: "Create repo and files"
+    status: todo
+
+  - id: T01_tun_helpers
+    title: "Implement tunnel.py"
+    status: todo
+    goal: "Create TUN device and simple read/write"
+    acceptance:
+      - "tunnel.open_tun(name='tun0') returns fd and ifname"
+      - "read_packet() returns bytes, write_packet() accepts bytes"
+    notes:
+      - "Set IFF_NO_PI; handle EAGAIN with non-blocking or select"
+      - "Set MTU to 1400 for MVP"
+    files: ["tunnel.py"]
+
+  - id: T02_crypto_primitives
+    title: "Implement AES-GCM wrappers"
+    status: todo
+    goal: "Provide encrypt/decrypt with random nonce"
+    acceptance:
+      - "encrypt(b'abc', key).startswith(nonce_prefix) where nonce is 12 bytes"
+      - "decrypt(encrypt(x)) == x"
+      - "tamper triggers exception"
+    files: ["crypto.py"]
+    caution:
+      - "Use os.urandom for nonce"
+      - "Prepend nonce to ciphertext"
+
+  - id: T03_client_min
+    title: "Minimal client orchestrator"
+    status: todo
+    goal: "Wire TUN to socket with encryption"
+    acceptance:
+      - "Client connects to server and sends encrypted frames"
+      - "Graceful shutdown on Ctrl+C"
+    files: ["client.py"]
+    interfaces:
+      - "load config/client.json"
+      - "spawn two loops: tun->sock and sock->tun"
+
+  - id: T04_server_min
+    title: "Minimal server orchestrator"
+    status: todo
+    goal: "Accept one client and bridge socket<->TUN"
+    acceptance:
+      - "Server listens on bind_host:bind_port"
+      - "Decrypts inbound; writes to TUN; echoes back"
+    files: ["server.py"]
+
+  - id: T05_netns_script
+    title: "Namespaces for isolation"
+    status: todo
+    goal: "Create client and server namespaces with veth"
+    acceptance:
+      - "ip netns list shows vpn-client and vpn-server"
+      - "veth-c <-> veth-s up with IPs 192.168.100.2/24 and 192.168.100.1/24"
+    files: ["scripts/netns_setup.sh"]
+    idempotency: "Repeated runs reset namespaces safely"
+
+  - id: T06_config_files
+    title: "Author JSON configs"
+    status: todo
+    goal: "Minimal keys and addresses"
+    acceptance:
+      - "Base64 32-byte key present"
+      - "tun_addr set to 10.8.0.2/24 for client, 10.8.0.1/24 for server"
+    files: ["config/client.json","config/server.json"]
+
+  - id: T07_smoke_tests
+    title: "Crypto and loop tests"
+    status: todo
+    goal: "Basic unit tests"
+    acceptance:
+      - "pytest tests passes locally"
+    files: ["tests/test_crypto.py","tests/test_smoke.py"]
+
+  - id: T08_routing_rules
+    title: "Bring up TUN and routes"
+    status: todo
+    goal: "Assign IPs, enable forwarding on server ns"
+    acceptance:
+      - "ip addr show tun0 shows 10.8.0.1/24 and 10.8.0.2/24"
+      - "ping over tunnel succeeds"
+    notes:
+      - "Use ip link set dev tun0 up and ip addr add inside each ns"
+    files: ["scripts/netns_setup.sh"]
+
+  - id: T09_nat_optional
+    title: "Optional NAT to internet"
+    status: todo
+    goal: "Masquerade client traffic out server host NIC"
+    acceptance:
+      - "curl http://1.1.1.1 from client ns works"
+    files: ["scripts/server_nat.sh"]
+    notes:
+      - "Enable net.ipv4.ip_forward=1 and iptables -t nat -A POSTROUTING -o <host-if> -j MASQUERADE"
+
+usage_plan:
+  local_run_single_host:
+    summary: "Run both client and server on one Linux machine using network namespaces"
+    steps:
+      - "sudo bash scripts/netns_setup.sh"
+      - "sudo ip netns exec vpn-server python server.py --config config/server.json"
+      - "sudo ip netns exec vpn-client python client.py --config config/client.json"
+      - "sudo ip netns exec vpn-client ping -c 3 10.8.0.1"
+    expected_result: "Ping replies via encrypted tunnel"
+
+configs_examples:
+  client_json: |
+    {
+      "server_host": "192.168.100.1",
+      "server_port": 5555,
+      "key_base64": "Base64Of32ByteKeyGoesHere==================",
+      "tun_addr": "10.8.0.2/24",
+      "mtu": 1400
+    }
+  server_json: |
+    {
+      "bind_host": "0.0.0.0",
+      "bind_port": 5555,
+      "key_base64": "Base64Of32ByteKeyGoesHere==================",
+      "tun_addr": "10.8.0.1/24",
+      "mtu": 1400,
+      "allow_subnet": "10.8.0.0/24"
+    }
+
+acceptance_tests:
+  - name: "AES-GCM roundtrip"
+    command: "pytest -k test_crypto"
+    pass_criteria: "All tests green"
+  - name: "Tunnel ping"
+    command: "sudo ip netns exec vpn-client ping -c 3 10.8.0.1"
+    pass_criteria: "3 packets transmitted, 3 received"
+  - name: "Tamper rejection"
+    method: "Flip one byte in ciphertext before decrypt"
+    pass_criteria: "Decrypt raises exception"
+
+observability:
+  logging:
+    level: "INFO default, DEBUG on demand"
+    fields: ["ts","dir","bytes","nonce_base64","peer"]
+  metrics:
+    minimal: ["packets_in","packets_out","decrypt_failures"]
+
+hardening_todo:
+  - "Switch transport to UDP for lower latency"
+  - "Add HMAC on control messages if you add a control channel"
+  - "Key rotation via control channel every N MB or minutes"
+  - "Replay protection window with nonce tracking"
+  - "Multi-client support with per-client keys and indexes"
+
+rollback_and_cleanup:
+  steps:
+    - "sudo ip netns del vpn-client || true"
+    - "sudo ip netns del vpn-server || true"
+    - "sudo sysctl -w net.ipv4.ip_forward=0 || true"
+  guarantee: "Environment returns to baseline"
+
+documentation:
+  docs/design.md:
+    outline:
+      - "High level architecture"
+      - "Threat model and mitigations"
+      - "Performance constraints and future work"
+      - "Glossary with succinct definitions"
+    status: todo
