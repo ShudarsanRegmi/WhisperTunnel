@@ -1,7 +1,7 @@
 {
   "bind_host": "0.0.0.0",
   "bind_port": 5555,
-  "key_base64": "8VqMqysuN/drG7fmH/JW2xxk4Lcy7sFKTS5LMb/FW5w=",
+  "key_base64": "v5zcdHyfzgbxO8CMwWsSG1nklQeLDf+k1zJINCRu41A=",
   "tun_addr": "10.8.0.1/24",
   "mtu": 1400,
   "allow_subnet": "10.8.0.0/24"

@@ -1,4 +1,3 @@
-# STATUS: done
 """
 Client-side TUN interface management for WhisperTunnel VPN.
 """
