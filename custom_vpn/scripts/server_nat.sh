@@ -22,6 +22,12 @@ cleanup_nat() {
     iptables -t nat -D POSTROUTING -s $VPN_SUBNET -o $HOST_INTERFACE -j MASQUERADE 2>/dev/null || true
     iptables -D FORWARD -i tun0 -o $HOST_INTERFACE -j ACCEPT 2>/dev/null || true
     iptables -D FORWARD -i $HOST_INTERFACE -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+    iptables -D FORWARD -s $VPN_SUBNET -j ACCEPT 2>/dev/null || true
+    
+    # Remove DNS configuration
+    rm -f /etc/netns/vpn-client/resolv.conf 2>/dev/null || true
+    rmdir /etc/netns/vpn-client 2>/dev/null || true
+    rmdir /etc/netns 2>/dev/null || true
     
     # Disable IP forwarding
     sysctl -w net.ipv4.ip_forward=0
@@ -54,9 +60,19 @@ echo "Adding forwarding rules..."
 iptables -I FORWARD -i tun0 -o $HOST_INTERFACE -j ACCEPT
 iptables -I FORWARD -i $HOST_INTERFACE -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-# In server namespace, add default route via VPN
-echo "Adding routes in server namespace..."
-ip netns exec $SERVER_NS ip route add default via 10.8.0.1 dev tun0 metric 100 2>/dev/null || true
+# Configure DNS for client namespace
+echo "Configuring DNS in client namespace..."
+mkdir -p /etc/netns/$CLIENT_NS
+echo "nameserver 8.8.8.8" > /etc/netns/$CLIENT_NS/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/netns/$CLIENT_NS/resolv.conf
+
+# In client namespace, add default route via VPN tunnel
+echo "Adding routes in client namespace..."
+ip netns exec $CLIENT_NS ip route add default via 10.8.0.1 dev tun0 metric 50 2>/dev/null || true
+
+# Enable forwarding from VPN subnet to any destination
+echo "Configuring additional forwarding rules..."
+iptables -I FORWARD -s $VPN_SUBNET -j ACCEPT 2>/dev/null || true
 
 echo ""
 echo "NAT setup completed!"

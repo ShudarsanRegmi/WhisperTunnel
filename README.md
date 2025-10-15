@@ -292,3 +292,26 @@ This is an educational project. Contributions that improve the learning experien
 - Inspired by real VPN implementations like WireGuard and OpenVPN
 - Uses the `cryptography` library for secure AEAD encryption
 - Built for learning about VPN internals and network programming
+
+
+```bash
+# 1. Generate fresh configurations
+cd custom_vpn
+python generate_config.py
+
+# 2. Set up network namespaces  
+sudo bash scripts/netns_setup.sh
+
+# 3. Start server (in one terminal)
+sudo ip netns exec vpn-server python3 server/server.py --config config/server.json
+
+# 4. Start client (in another terminal)
+sudo ip netns exec vpn-client python3 client/client.py --config config/client.json
+
+# 5. Test the tunnel
+sudo ip netns exec vpn-client ping 10.8.0.1
+
+# 6. Optional: Enable internet access via VPN
+sudo bash scripts/server_nat.sh
+sudo ip netns exec vpn-client curl http://httpbin.org/ip
+```
