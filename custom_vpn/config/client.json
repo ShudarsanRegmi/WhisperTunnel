@@ -1,5 +1,5 @@
 {
-  "server_host": "192.168.100.1",
+  "server_host": "35.225.48.199",
   "server_port": 5555,
   "key_base64": "v5zcdHyfzgbxO8CMwWsSG1nklQeLDf+k1zJINCRu41A=",
   "tun_addr": "10.8.0.2/24",
