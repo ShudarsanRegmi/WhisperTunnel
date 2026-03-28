@@ -315,3 +315,41 @@ sudo ip netns exec vpn-client ping 10.8.0.1
 sudo bash scripts/server_nat.sh
 sudo ip netns exec vpn-client curl http://httpbin.org/ip
 ```
+
+
+### GCP (Server)
+```bash
+source .venv/bin/activate
+sudo -E $(which python3) server/server.py --config config/server.json 
+```
+
+## Client
+```bash
+sudo python3 client/client.py --config config/client.json
+```
+
+## server config
+
+```json
+{
+  "bind_host": "0.0.0.0",
+  "bind_port": 5555,
+  "key_base64": "v5zcdHyfzgbxO8CMwWsSG1nklQeLDf+k1zJINCRu41A=",
+  "tun_addr": "10.8.0.1/24",
+  "mtu": 1400,
+  "allow_subnet": "10.8.0.0/24"
+}
+```
+
+## Client Config
+```json
+{
+  "server_host": "35.225.48.199",
+  "server_port": 5555,
+  "key_base64": "v5zcdHyfzgbxO8CMwWsSG1nklQeLDf+k1zJINCRu41A=",
+  "tun_addr": "10.8.0.2/24",
+  "mtu": 1400
+}
+```
+
+
