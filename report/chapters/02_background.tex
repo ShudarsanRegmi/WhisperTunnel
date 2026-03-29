@@ -1,0 +1,120 @@
+\chapter{Background and Conceptual Foundations}
+
+\section{VPN Fundamentals Relevant to WhisperTunnel}
+A VPN creates a protected path between endpoints by encapsulating original network packets and transmitting them through an intermediate network. In WhisperTunnel, encapsulation occurs in user space: plaintext IP packets read from a TUN interface are encrypted and then sent over TCP.
+
+The tunnel endpoint relationship is symmetric at the data plane:
+\begin{itemize}[leftmargin=2em]
+\item Endpoint A reads from \texttt{tun0}, encrypts, frames, and sends.
+\item Endpoint B receives, deframes, decrypts, and writes to \texttt{tun0}.
+\item The reverse direction follows the same sequence concurrently.
+\end{itemize}
+
+\section{TUN Interfaces in Linux}
+A TUN interface is a virtual point-to-point network interface that operates at layer 3. Programs interact with it through a file descriptor and exchange raw IP packets. This mechanism allows user-space VPN implementations to participate directly in packet forwarding without requiring kernel-space VPN code.
+
+Key implications for WhisperTunnel:
+\begin{itemize}[leftmargin=2em]
+\item The kernel routes traffic into \texttt{tun0} based on routing tables.
+\item User-space reads packets using \texttt{os.read} and writes using \texttt{os.write}.
+\item Correct interface setup (IP, MTU, link state) is mandatory for traffic flow.
+\end{itemize}
+
+\section{AEAD and AES-GCM}
+WhisperTunnel uses AES-GCM, an AEAD (Authenticated Encryption with Associated Data) mode. AEAD provides confidentiality and integrity in one operation. In this implementation:
+\begin{itemize}[leftmargin=2em]
+\item Key size is 32 bytes (AES-256).
+\item Nonce size is 12 bytes (GCM standard size).
+\item Nonce is generated per packet via \texttt{os.urandom}.
+\item Output format is \texttt{nonce || ciphertext+tag}.
+\end{itemize}
+
+The absence of additional authenticated data (AAD) keeps API usage simple for teaching, although AAD could later bind metadata (sequence IDs, protocol version) for stronger contextual validation.
+
+\section{Stream Transport Framing}
+TCP is byte-stream oriented and does not preserve application message boundaries. WhisperTunnel solves this by prepending each encrypted payload with a 4-byte big-endian length field.
+
+Mathematically, if $C$ is encrypted payload bytes and $|C|$ is its length, wire format is:
+\[
+M = \text{uint32\_be}(|C|) \; || \; C
+\]
+
+Receiver logic reads exactly 4 bytes first, decodes length, validates against \texttt{MAX\_PACKET\_SIZE}, then reads exactly that many bytes.
+
+\section{Authentication Model}
+Connection setup uses a simple shared-key HMAC token:
+\begin{itemize}[leftmargin=2em]
+\item Token payload includes an 8-byte timestamp.
+\item HMAC-SHA256 over timestamp is appended.
+\item Peer verifies MAC validity and timestamp age (default 300 s).
+\item Server sends acknowledgment token after successful verification.
+\end{itemize}
+
+This mechanism provides basic shared-secret proof-of-knowledge but does not provide identity hierarchy, certificate management, or forward secrecy.
+
+\section{Network Namespaces for Test Isolation}
+Linux network namespaces create independent network stacks, allowing realistic client/server experiments on one host. WhisperTunnel scripts use namespaces to emulate separate machines while preserving reproducibility.
+
+Benefits include:
+\begin{itemize}[leftmargin=2em]
+\item Isolated interfaces and routes per namespace.
+\item Deterministic topology using veth pairs.
+\item Safe teardown and reset with cleanup scripts.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.9, every node/.style={font=\small}]
+  % Host system box
+  \draw[thick, dashed] (0,0) rectangle (10,6);
+  \node[anchor=north east] at (9.95,5.95) {\textbf{Host System}};
+  
+  % Client namespace
+  \draw[thick] (0.5,3) rectangle (4,5.5);
+  \node[anchor=north west] at (0.6,5.4) {\textbf{vpn-client ns}};
+  \node[circle, fill=lightblue, minimum size=0.6cm] at (1,4.5) {};
+  \node[below] at (1,4.2) {\texttt{veth-c}};
+  \draw[rectangle, draw, fill=yellow!20] (0.8,3.5) rectangle (1.2,4);
+  \node at (1,3.75) {\footnotesize \texttt{192.168.100.2}};
+  
+  % Server namespace
+  \draw[thick] (6,3) rectangle (9.5,5.5);
+  \node[anchor=north west] at (6.1,5.4) {\textbf{vpn-server ns}};
+  \node[circle, fill=lightgreen, minimum size=0.6cm] at (8,4.5) {};
+  \node[below] at (8,4.2) {\texttt{veth-s}};
+  \draw[rectangle, draw, fill=yellow!20] (7.8,3.5) rectangle (8.2,4);
+  \node at (8,3.75) {\footnotesize \texttt{192.168.100.1}};
+  
+  % veth pair connection
+  \draw[thick, <->] (1.3,4.5) -- (7.7,4.5);
+  \node[midway, above] at (4.5,4.5) {\texttt{veth pair}};
+  
+  % Legend
+  \node[anchor=west] at (0.5,1.5) {\textbf{Tunnel:}};
+  \node[anchor=west, font=\footnotesize] at (0.5,1) {Client: tun0 @ 10.8.0.2/24};
+  \node[anchor=west, font=\footnotesize] at (0.5,0.5) {Server: tun0 @ 10.8.0.1/24};
+\end{tikzpicture}
+\caption{Network Namespace Topology}
+\end{figure}
+
+\section{Educational vs Production Orientation}
+The codebase repeatedly labels itself as educational. This distinction is important because design decisions prioritize readability and quick demonstration over full adversarial robustness.
+
+\begin{table}[H]
+\centering
+\caption{Educational Priorities vs Production Priorities}
+\begin{tabular}{p{0.43\textwidth}p{0.43\textwidth}}
+\toprule
+\textbf{Educational Emphasis} & \textbf{Production Emphasis} \\
+\midrule
+Simple, direct control flow & Strong compartmentalization and hardening \\
+Single shared key setup & Managed identity, rotation, revocation \\
+Minimal protocol state & Replay windows, anti-downgrade, negotiation \\
+Basic threading model & High-throughput async or kernel acceleration \\
+Human-readable scripts & Idempotent automation + policy integration \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Context for Later Chapters}
+With these foundations, the remaining chapters map theory to concrete module behavior. Where implementation choices diverge from production best practices, the report highlights why those divergences are acceptable for learning and what concrete changes would close the gap.

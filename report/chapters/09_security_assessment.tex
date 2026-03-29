@@ -1,0 +1,80 @@
+\chapter{Security Assessment}
+
+\section{Assessment Method}
+This chapter evaluates security posture strictly from visible implementation and scripts. The analysis is threat-oriented: what is protected, what remains exposed, and what controls should be prioritized next.
+
+\section{Security Controls Implemented}
+\subsection{Confidentiality and Integrity}
+AES-256-GCM is used for packet payload protection. When used with unique nonces and validated tags, this offers strong confidentiality and tamper detection.
+
+\subsection{Connection Authentication}
+Shared-key HMAC token exchange prevents unauthenticated peers from entering packet-forwarding state, assuming key secrecy and clock skew within validation bounds.
+
+\subsection{Input Guarding}
+Framing code constrains packet lengths and catches incomplete reads; crypto code validates key sizes and ciphertext minimum length.
+
+\section{Threat Model Fit}
+\begin{table}[H]
+\centering
+\caption{Threat Coverage Mapping}
+\begin{tabular}{p{0.36\textwidth}p{0.22\textwidth}p{0.30\textwidth}}
+\toprule
+\textbf{Threat} & \textbf{Coverage} & \textbf{Rationale} \\
+\midrule
+Passive packet sniffing & Strong & AES-GCM encrypts payload bytes \\
+In-transit tampering & Strong & GCM authentication tag validation \\
+Unauthorized peer connect & Moderate & Shared-key token auth only \\
+Replay of data packets & Weak & No sequence window / anti-replay state \\
+Key compromise blast radius & Weak & Static key reuse across sessions \\
+Traffic analysis & Weak & Timing/size metadata visible \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Critical Gaps}
+\subsection{No Perfect Forward Secrecy}
+A static symmetric key means compromise reveals all traffic that was recorded and encrypted under that key.
+
+\subsection{No Session Key Derivation}
+The same secret underpins both auth and content encryption pathways. Separation of concerns is recommended for future versions.
+
+\subsection{Limited Replay Defenses}
+Authentication tokens include timestamps, but packet replay within active sessions is not robustly prevented.
+
+\subsection{Single-Factor Secret Model}
+No certificate identity, no per-client credentials, and no revocation model are present.
+
+\section{Script and Ops Security Considerations}
+Operational scripts manipulate host routing and iptables. Incorrect cleanup or partial execution may leave persistent forwarding rules. This is an operational security concern, not a cryptographic flaw.
+
+\section{Security Improvement Prioritization}
+\begin{table}[H]
+\centering
+\caption{Prioritized Security Enhancements}
+\begin{tabular}{p{0.12\textwidth}p{0.38\textwidth}p{0.36\textwidth}}
+\toprule
+\textbf{Priority} & \textbf{Enhancement} & \textbf{Expected Benefit} \\
+\midrule
+P1 & Ephemeral handshake + session key derivation & Forward secrecy and compartmentalization \\
+P1 & Packet sequence IDs + replay window & In-session replay mitigation \\
+P2 & Key rotation and rekey signaling & Reduced key lifetime risk \\
+P2 & Separate keys for auth and encryption & Better key hygiene and auditability \\
+P3 & Optional obfuscation/padding & Reduced traffic analysis leakage \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Hardening Checklist}
+\begin{enumerate}[leftmargin=2em]
+\item Replace static shared-key model with authenticated key exchange.
+\item Add protocol version byte and minimum accepted version policy.
+\item Introduce structured error telemetry without leaking key material.
+\item Add stricter resource caps and connection rate limiting on server.
+\item Harden scripts for safe rollback and deterministic cleanup.
+\end{enumerate}
+
+\section{Residual Risk Statement}
+Current implementation can protect confidentiality/integrity in controlled educational environments where key handling is trusted and adversarial sophistication is limited. It should not be treated as production-secure VPN software without major security upgrades listed above.
+
+\section{Conclusion}
+WhisperTunnel demonstrates solid foundational primitives but intentionally omits advanced controls. This makes it excellent for learning and prototyping, while clearly indicating the engineering distance to production-grade security assurances.

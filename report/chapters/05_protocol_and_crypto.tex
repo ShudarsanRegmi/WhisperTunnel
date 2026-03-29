@@ -1,0 +1,153 @@
+\chapter{Protocol and Cryptography Design}
+
+\section{Protocol Envelope}
+WhisperTunnel transmits encrypted packets over TCP by applying a fixed framing convention:
+\begin{itemize}[leftmargin=2em]
+\item 4-byte unsigned big-endian payload length.
+\item Cipher payload of exactly that length.
+\end{itemize}
+
+Receiver logic reads exact byte counts using a helper that loops until complete reception or connection failure. This avoids partial-read ambiguity, a common error in stream protocol implementations.
+
+\section{Packet Size Controls}
+\texttt{MAX\_PACKET\_SIZE} is derived from default MTU plus overhead cushion. Sender and receiver both enforce this upper bound. Any packet exceeding this threshold raises a protocol error.
+
+\begin{table}[H]
+\centering
+\caption{Protocol Constants in Current Implementation}
+\begin{tabular}{p{0.42\textwidth}p{0.20\textwidth}p{0.24\textwidth}}
+\toprule
+\textbf{Constant} & \textbf{Value} & \textbf{Meaning} \\
+\midrule
+\texttt{PACKET\_HEADER\_SIZE} & 4 bytes & Framing length prefix size \\
+\texttt{DEFAULT\_MTU} & 1400 bytes & Baseline tunnel payload target \\
+\texttt{MAX\_PACKET\_SIZE} & 1500 bytes & Framing safety cap \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{AES-GCM Usage}
+Encryption is performed by \texttt{cryptography.hazmat.primitives.ciphers.aead.AESGCM}. For each plaintext packet:
+\begin{enumerate}[leftmargin=2em]
+\item Validate 32-byte key length.
+\item Generate 12-byte random nonce via \texttt{os.urandom}.
+\item Encrypt with \texttt{AAD=None}.
+\item Emit \texttt{nonce || ciphertext\_with\_tag}.
+\end{enumerate}
+
+On decrypt:
+\begin{enumerate}[leftmargin=2em]
+\item Validate key length.
+\item Ensure ciphertext length is at least nonce size.
+\item Split nonce and encrypted segment.
+\item Attempt decrypt; reject on any authenticity failure.
+\end{enumerate}
+
+\section{Why This Is Cryptographically Sound for MVP}
+Within its scope, this design avoids several severe beginner pitfalls:
+\begin{itemize}[leftmargin=2em]
+\item Nonce reuse is unlikely due to cryptographic randomness.
+\item Integrity checking is mandatory in GCM decrypt call.
+\item Wrong-key and tampering scenarios fail safely through exceptions.
+\item Tests explicitly validate tamper detection.
+\end{itemize}
+
+\section{Authentication Handshake}
+Authentication occurs before packet forwarding begins. The model is symmetric but role-specific:
+\begin{itemize}[leftmargin=2em]
+\item Client sends token to server.
+\item Server validates token and timestamp freshness.
+\item Server returns acknowledgment token.
+\item Client validates acknowledgment similarly.
+\end{itemize}
+
+Token format:
+\[
+\text{token} = \text{timestamp}_{8\,bytes} || \text{HMAC-SHA256}(key, timestamp)
+\]
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.85, every node/.style={font=\small}]
+  % Actors
+  \node[draw, fill=lightblue, minimum height=0.6cm] at (1,7) {\textbf{Client}};
+  \node[draw, fill=lightgreen, minimum height=0.6cm] at (5,7) {\textbf{Server}};
+  
+  % Lifelines
+  \draw[dashed] (1,6.7) -- (1,0.5);
+  \draw[dashed] (5,6.7) -- (5,0.5);
+  
+  % 1. Auth Token
+  \draw[->, thick] (1.2,5.5) -- (4.8,5.2);
+  \node[above, font=\small] at (3,5.6) {Auth Token};
+  
+  % 2. HMAC Verify
+  \draw[<-, dashed] (1.2,4.2) -- (4.8,4.5);
+  \node[below, font=\tiny, gray] at (3,4.0) {verify};
+  
+  % 3. Ack Token
+  \draw[->, thick] (4.8,3.5) -- (1.2,3.2);
+  \node[above, font=\small] at (3,3.6) {Ack Token};
+  
+  % 4. Ack Verify
+  \draw[<-, dashed] (4.8,2.2) -- (1.2,2.5);
+  \node[below, font=\tiny, gray] at (3,2.0) {verify};
+  
+  % Result
+  \node[draw, fill=yellow!20, minimum width=2cm] at (3,1) {Tunnel Ready};
+  \node[anchor=west, font=\tiny] at (6,5.5) {HMAC-SHA256};
+  \node[anchor=west, font=\tiny] at (6,5.0) {Max age: 300s};
+\end{tikzpicture}
+\caption{Authentication Handshake Sequence}
+\end{figure}
+
+\section{Security Properties and Gaps}
+\subsection{Properties Achieved}
+\begin{itemize}[leftmargin=2em]
+\item Confidentiality for tunnel payload.
+\item Per-packet integrity/authenticity at ciphertext level.
+\item Basic endpoint possession proof through shared key token exchange.
+\end{itemize}
+
+\subsection{Properties Missing}
+\begin{itemize}[leftmargin=2em]
+\item Perfect forward secrecy.
+\item Replay tracking based on sequence state.
+\item Distinct key separation for auth and encryption contexts.
+\item Negotiated protocol versioning and cipher agility.
+\end{itemize}
+
+\section{Replay Discussion}
+Timestamp-limited tokens constrain stale authentication messages but do not prevent replay of encrypted data packets in-session because packet-level sequence windows are absent. Random nonces protect GCM uniqueness but are not replay identifiers in this protocol.
+
+\section{Code Listing: Framing Primitive}
+\begin{lstlisting}[style=vpnpython,caption={Length-prefix send pattern from protocol module}]
+def send_packet(sock, data):
+    if len(data) > MAX_PACKET_SIZE:
+        raise ProtocolError("Packet too large")
+    length_prefix = struct.pack('>I', len(data))
+    sock.sendall(length_prefix + data)
+\end{lstlisting}
+
+\section{Code Listing: Auth Token Generation}
+\begin{lstlisting}[style=vpnpython,caption={Timestamped HMAC token generation pattern}]
+def create_auth_token(key, timestamp=None):
+    if timestamp is None:
+        timestamp = int(time.time())
+    message = timestamp.to_bytes(8, 'big')
+    token = hmac.new(key, message, hashlib.sha256).digest()
+    return message + token
+\end{lstlisting}
+
+\section{Protocol Hardening Recommendations}
+Short-term upgrades that preserve educational readability:
+\begin{enumerate}[leftmargin=2em]
+\item Add packet sequence counters and replay window tracking.
+\item Split secrets into dedicated subkeys via HKDF.
+\item Include protocol version and flags in a small fixed header.
+\item Bind metadata into AEAD AAD to prevent cross-context misuse.
+\item Define explicit error codes for auth/protocol failures.
+\end{enumerate}
+
+\section{Conclusion}
+The protocol and crypto stack is coherent and appropriately small for teaching. It correctly demonstrates modern AEAD usage and stream framing, while leaving clear room for advanced defensive mechanisms in future iterations.

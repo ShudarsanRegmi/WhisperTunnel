@@ -1,0 +1,81 @@
+\chapter{Introduction}
+
+\section{Motivation}
+Virtual Private Networks are often taught at a conceptual level, while implementation details are hidden inside mature systems such as WireGuard, OpenVPN, and IPSec stacks. WhisperTunnel addresses this educational gap by offering a compact, inspectable codebase that exposes the operational core of a VPN tunnel: packet capture from a virtual interface, cryptographic encapsulation, framed transport, authenticated delivery, and reinjection into a target network stack.
+
+The project is intentionally minimal and Linux-centric. It avoids protocol complexity that would obscure first-principles understanding, while still covering enough subsystems to be meaningful for systems programming, cryptography integration, and network operations training.
+
+\section{Scope of This Report}
+This document is a code-driven study of the WhisperTunnel repository. It does not merely restate generic VPN knowledge. Instead, it maps directly to implemented modules and scripts, including:
+
+\begin{itemize}[leftmargin=2em]
+\item Python modules under \texttt{custom\_vpn/common}, \texttt{custom\_vpn/client}, and \texttt{custom\_vpn/server}.
+\item Runtime orchestration and environment scripts under \texttt{custom\_vpn/scripts}.
+\item Validation assets under \texttt{custom\_vpn/tests}.
+\item Design narratives in \texttt{README.md} and \texttt{docs/design.md}.
+\end{itemize}
+
+\section{Project Objectives Interpreted from Code}
+From implementation behavior and accompanying scripts, the practical objectives are:
+
+\begin{enumerate}[leftmargin=2em]
+\item Establish an encrypted L3 tunnel between one client and one server.
+\item Run clean demonstrations in isolated network namespaces.
+\item Maintain readable code pathways for educational use.
+\item Provide reproducible setup scripts and baseline diagnostics.
+\item Expose known limitations explicitly for pedagogical honesty.
+\end{enumerate}
+
+\section{Operational Summary}
+At runtime, a client process and server process each attach to a Linux TUN interface. Raw IP packets are read from the local TUN, encrypted with AES-GCM, and framed for transport over a persistent TCP socket. The peer receives framed ciphertext, decrypts it, then writes plaintext packets into its local TUN device. Authentication is performed once at connection setup using timestamped HMAC tokens.
+
+\begin{table}[H]
+\centering
+\caption{WhisperTunnel at a Glance}
+\begin{tabular}{p{0.28\textwidth}p{0.58\textwidth}}
+\toprule
+\textbf{Dimension} & \textbf{Current Implementation} \\
+\midrule
+Tunnel type & L3 packet forwarding via Linux TUN \\
+Payload protection & AES-256-GCM, random nonce per packet \\
+Transport & TCP with 4-byte big-endian length prefix \\
+Authentication & Shared-key HMAC token + timestamp validation \\
+Concurrency model & Threaded loops (bidirectional forwarding) \\
+Client scale & Single client (MVP) \\
+Primary test model & Linux network namespaces + pytest \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Why a Book-Style Report}
+A book format is appropriate because this project spans multiple engineering layers:
+
+\begin{itemize}[leftmargin=2em]
+\item Application lifecycle and process orchestration.
+\item Cryptographic API usage and threat boundaries.
+\item Packet protocol mechanics over stream transport.
+\item Linux networking internals (TUN, namespaces, NAT, routing).
+\item Testability and operational runbooks.
+\end{itemize}
+
+These layers are easier to digest in chaptered form with stable references, tables, and figure anchors than in a short project memo.
+
+\section{Reading Outcomes}
+After reading this report, a technical reader should be able to:
+
+\begin{enumerate}[leftmargin=2em]
+\item Explain how WhisperTunnel moves packets from one namespace to another.
+\item Reproduce a local deployment using provided scripts and commands.
+\item Evaluate security strengths versus missing controls.
+\item Identify bottlenecks and practical paths toward production hardening.
+\item Extend the implementation while preserving conceptual clarity.
+\end{enumerate}
+
+\section{Method Used for Analysis}
+This report is built from static inspection of source files and scripts, complemented by consistency checks between implementation and documentation. No claims are made that exceed visible repository evidence. Where ambiguity exists, the text marks assumptions and proposes verification actions.
+
+\section{Limitations of This Study}
+The analysis reflects repository state as of 29 March 2026. Runtime measurements are discussed conceptually unless explicit benchmark outputs are present in code or scripts. Also, script behavior can vary by Linux distribution, iptables backend, and local network policy.
+
+\section{Chapter Roadmap}
+Chapter 2 provides background context and concepts. Chapter 3 maps repository structure and responsibilities. Chapters 4 to 6 detail architecture and implementation flow. Chapter 7 focuses on deployment and operations. Chapter 8 concludes with prioritized roadmap guidance.

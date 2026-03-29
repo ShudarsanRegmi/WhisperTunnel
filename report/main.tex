@@ -1,0 +1,167 @@
+\documentclass[11pt,oneside]{book}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\IfFileExists{newtxtext.sty}{
+  \usepackage{newtxtext,newtxmath}
+}{
+  \usepackage{mathptmx}
+}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\definecolor{lightblue}{rgb}{0.68,0.85,0.90}
+\definecolor{lightgreen}{rgb}{0.56,0.93,0.56}
+\definecolor{lightgray}{rgb}{0.83,0.83,0.83}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{tocloft}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{url}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+  pdftitle={WhisperTunnel VPN: Architecture, Implementation, and Evaluation},
+  pdfauthor={Project Technical Report},
+  pdfsubject={Educational VPN System Analysis}
+}
+
+\setstretch{1.05}
+\setlength{\parskip}{0.25em}
+\setlength{\parindent}{1.2em}
+\setlength{\headheight}{14pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{WhisperTunnel VPN Report}
+\fancyhead[RE,LO]{\leftmark}
+\fancyfoot[C]{\thepage}
+
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\Large}
+  {\chaptertitlename\ \thechapter}{0.5em}{\Huge}
+
+\lstdefinestyle{vpnpython}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{green!40!black},
+  stringstyle=\color{red!50!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{black!20}
+}
+
+\lstdefinestyle{vpnbash}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{green!40!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{black!20}
+}
+
+\newcommand{\imgplaceholder}[2]{
+\begin{figure}[H]
+  \centering
+  \fbox{\begin{minipage}[c][0.25\textheight][c]{0.85\textwidth}
+    \centering
+    \textbf{Image Placeholder}\\[0.5em]
+    #2
+  \end{minipage}}
+  \caption{#1}
+\end{figure}
+}
+
+\begin{document}
+
+\frontmatter
+
+\begin{titlepage}
+\centering
+{\Huge \textbf{WhisperTunnel VPN}\\[0.5em]}
+{\LARGE Architecture, Implementation, and Operations Report\\[1.5em]}
+{\large Technical Documentation\\}
+\vfill
+{\large Prepared for the WhisperTunnel Project\\[0.4em]}
+
+{\large Team Members\\[0.3em]}
+\begin{tabular}{c}
+\large Shudarsan Regmi (CH.SC.U4CYS23055)
+\end{tabular}
+
+\vspace{0.6em}
+{\large Date: 29 March 2026\\}
+\vfill
+\begin{minipage}{0.85\textwidth}
+\centering
+\textit{This report presents a focused engineering analysis of the WhisperTunnel educational VPN implementation. It consolidates architecture, protocol flow, cryptographic design, network setup, implementation walkthroughs, operations guidance, and roadmap recommendations in a publication-style format suitable for academic or technical submission.}
+\end{minipage}
+\end{titlepage}
+
+\chapter*{Abstract}
+WhisperTunnel is a minimal educational Virtual Private Network (VPN) implementation in Python that demonstrates encrypted packet tunneling through Linux TUN interfaces, authenticated transport over TCP, and isolation-oriented validation using network namespaces. This report studies the full codebase and associated scripts, then synthesizes a professional, book-style technical narrative around the system's design and behavior.
+
+The implementation combines AES-GCM payload encryption, a framed packet protocol using length-prefix messages, and a lightweight HMAC-based authentication handshake. It targets conceptual clarity and demonstrability rather than production-hardening. Through direct inspection of modules in \texttt{client/}, \texttt{server/}, \texttt{common/}, and \texttt{scripts/}, this report reconstructs control paths, data paths, component responsibilities, and deployment assumptions.
+
+Beyond architecture exposition, this book includes structured tables, sequence explanations, code listings, operational runbooks, and migration recommendations for evolving the MVP. Image placeholders are inserted throughout to support later inclusion of screenshots, packet captures, topology diagrams, and codebase snapshots.
+
+\chapter*{How to Read This Report}
+Readers can approach this document in one of three ways:
+\begin{itemize}[leftmargin=2em]
+\item \textbf{Fast orientation}: read Chapters 1, 3, and 8.
+\item \textbf{Engineering deep dive}: read Chapters 4 through 6 in order.
+\item \textbf{Operations focus}: read Chapter 7.
+\end{itemize}
+
+\tableofcontents
+\listoffigures
+\listoftables
+\clearpage
+
+\mainmatter
+
+\include{chapters/01_introduction}
+\include{chapters/02_background}
+\include{chapters/03_codebase_overview}
+\include{chapters/04_system_architecture}
+\include{chapters/05_protocol_and_crypto}
+\include{chapters/06_implementation_walkthrough}
+\include{chapters/07_deployment_and_operations}
+\include{chapters/11_conclusion_and_roadmap}
+
+\backmatter
+
+\chapter*{Bibliographic Notes}
+This report references implementation facts from the WhisperTunnel codebase and its embedded documentation, especially \texttt{README.md} and \texttt{docs/design.md}. Conceptual framing is informed by standard VPN and AEAD literature, including AES-GCM usage practices and Linux namespace/TUN workflows.
+
+\end{document}

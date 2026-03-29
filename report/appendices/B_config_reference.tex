@@ -1,0 +1,75 @@
+\chapter{Configuration Reference}
+
+\section{Client Configuration Fields}
+\begin{table}[H]
+\centering
+\caption{\texttt{config/client.json} Fields}
+\begin{tabular}{p{0.28\textwidth}p{0.18\textwidth}p{0.42\textwidth}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{server\_host} & string & Server IP/hostname reachable by client \\
+\texttt{server\_port} & integer & Server listen port (default 5555) \\
+\texttt{key\_base64} & string & Base64-encoded 32-byte shared key \\
+\texttt{tun\_addr} & string & Client tunnel address in CIDR format \\
+\texttt{mtu} & integer & Tunnel MTU, default 1400 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Server Configuration Fields}
+\begin{table}[H]
+\centering
+\caption{\texttt{config/server.json} Fields}
+\begin{tabular}{p{0.28\textwidth}p{0.18\textwidth}p{0.42\textwidth}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{bind\_host} & string & Address to bind server socket \\
+\texttt{bind\_port} & integer & TCP listen port \\
+\texttt{key\_base64} & string & Base64-encoded 32-byte shared key \\
+\texttt{tun\_addr} & string & Server tunnel address in CIDR format \\
+\texttt{mtu} & integer & Tunnel MTU, default 1400 \\
+\texttt{allow\_subnet} & string & Allowed VPN subnet hint for policy \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Redacted Example Configurations}
+\begin{lstlisting}[style=vpnpython,caption={Client JSON example (redacted key)}]
+{
+  "server_host": "192.168.100.1",
+  "server_port": 5555,
+  "key_base64": "<BASE64_32_BYTE_KEY>",
+  "tun_addr": "10.8.0.2/24",
+  "mtu": 1400
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=vpnpython,caption={Server JSON example (redacted key)}]
+{
+  "bind_host": "0.0.0.0",
+  "bind_port": 5555,
+  "key_base64": "<BASE64_32_BYTE_KEY>",
+  "tun_addr": "10.8.0.1/24",
+  "mtu": 1400,
+  "allow_subnet": "10.8.0.0/24"
+}
+\end{lstlisting}
+
+\section{Configuration Hygiene Recommendations}
+\begin{enumerate}[leftmargin=2em]
+\item Never commit active production keys in plaintext repositories.
+\item Regenerate shared keys for every new environment.
+\item Validate JSON schema before process startup.
+\item Separate environment profiles (dev/test/demo).
+\item Add explicit key rotation and expiry metadata in future schema versions.
+\end{enumerate}
+
+\section{Config Validation Checklist}
+\begin{itemize}[leftmargin=2em]
+\item Client and server keys must match exactly.
+\item Tunnel subnets should not overlap host physical subnet.
+\item Server bind host should align with namespace/host execution mode.
+\item MTU should account for overhead and path characteristics.
+\end{itemize}

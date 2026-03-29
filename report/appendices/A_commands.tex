@@ -1,0 +1,57 @@
+\chapter{Command Reference}
+
+\section{Environment Preparation}
+\begin{lstlisting}[style=vpnbash,caption={Install dependencies and generate configs}]
+cd custom_vpn
+pip install -r requirements.txt
+python3 generate_config.py
+\end{lstlisting}
+
+\section{Namespace Setup and Cleanup}
+\begin{lstlisting}[style=vpnbash,caption={Namespace setup}]
+sudo bash scripts/netns_setup.sh
+\end{lstlisting}
+
+\begin{lstlisting}[style=vpnbash,caption={Namespace cleanup}]
+sudo bash scripts/netns_setup.sh cleanup
+\end{lstlisting}
+
+\section{Server and Client Execution}
+\begin{lstlisting}[style=vpnbash,caption={Run server and client in dual namespace mode}]
+sudo ip netns exec vpn-server python3 server/server.py --config config/server.json
+sudo ip netns exec vpn-client python3 client/client.py --config config/client.json
+\end{lstlisting}
+
+\section{Tunnel Validation}
+\begin{lstlisting}[style=vpnbash,caption={Basic tunnel check}]
+sudo ip netns exec vpn-client ping 10.8.0.1
+\end{lstlisting}
+
+\section{Internet Access through VPN}
+\begin{lstlisting}[style=vpnbash,caption={NAT setup and connectivity checks}]
+sudo bash scripts/server_nat.sh
+sudo ip netns exec vpn-client nslookup google.com
+sudo ip netns exec vpn-client curl http://httpbin.org/ip
+\end{lstlisting}
+
+\section{Diagnostics}
+\begin{lstlisting}[style=vpnbash,caption={Automated diagnostics script}]
+sudo bash scripts/diagnose.sh
+\end{lstlisting}
+
+\section{Test Execution}
+\begin{lstlisting}[style=vpnbash,caption={Run all tests}]
+pytest tests/
+\end{lstlisting}
+
+\begin{lstlisting}[style=vpnbash,caption={Run focused test modules}]
+pytest tests/test_crypto.py -v
+pytest tests/test_tunnel.py -v
+pytest tests/test_end2end.py -v
+\end{lstlisting}
+
+\section{Report Build Commands}
+\begin{lstlisting}[style=vpnbash,caption={Build LaTeX report PDF}]
+cd report
+make
+\end{lstlisting}

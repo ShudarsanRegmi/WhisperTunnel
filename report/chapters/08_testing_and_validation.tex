@@ -1,0 +1,103 @@
+\chapter{Testing and Validation}
+
+\section{Testing Philosophy in Repository}
+The project follows a practical mixed strategy:
+\begin{itemize}[leftmargin=2em]
+\item Fast unit tests for deterministic cryptographic and utility behavior.
+\item Privileged integration tests gated by environment requirements.
+\item Socket-level framing tests to validate protocol primitives.
+\end{itemize}
+
+This structure balances accessibility (most tests runnable without root) with realism (TUN and namespace tests where privileges permit).
+
+\section{Crypto Test Coverage}
+\texttt{tests/test\_crypto.py} covers essential security invariants:
+\begin{enumerate}[leftmargin=2em]
+\item Key generation length and uniqueness.
+\item Base64 encode/decode round-trip.
+\item Encrypt/decrypt round-trip correctness.
+\item Nonce-driven ciphertext variability for same plaintext.
+\item Wrong-key decryption failure.
+\item Tamper detection by bit flip.
+\item Invalid key length rejection.
+\item Empty and large payload handling.
+\end{enumerate}
+
+These are strong educational tests because they validate both nominal behavior and negative cases that represent real-world attack surfaces.
+
+\section{Tunnel Tests}
+\texttt{tests/test\_tunnel.py} includes privilege-aware checks:
+\begin{itemize}[leftmargin=2em]
+\item TUN creation and context manager semantics.
+\item Timeout behavior for non-blocking reads.
+\item Pre-open error path assertions.
+\item Convenience helper coverage.
+\end{itemize}
+
+Root and \texttt{/dev/net/tun} checks are used to skip unsupported environments cleanly.
+
+\section{End-to-End and Integration Tests}
+\texttt{tests/test\_end2end.py} validates:
+\begin{itemize}[leftmargin=2em]
+\item Config template generation correctness.
+\item Shared key consistency between endpoint configs.
+\item Basic TCP socket message exchange.
+\item Framed packet round-trip using protocol helpers.
+\item Optional namespace setup script behavior (root-gated).
+\end{itemize}
+
+\section{Validation Matrix}
+\begin{table}[H]
+\centering
+\caption{Validation Matrix by Subsystem}
+\begin{tabular}{p{0.30\textwidth}p{0.18\textwidth}p{0.42\textwidth}}
+\toprule
+\textbf{Subsystem} & \textbf{Coverage Level} & \textbf{Notes} \\
+\midrule
+Crypto primitives & High & Includes tamper, wrong key, nonce uniqueness patterns \\
+Protocol framing & Medium-High & Socket loopback framing tests included \\
+TUN lifecycle & Medium & Privileged tests with environment guards \\
+Namespace scripts & Medium & Some script invocation checks under root \\
+Full tunnel path & Medium & Demonstrated via scripts and manual ping workflows \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Testing Gaps}
+Despite good baseline coverage, several gaps remain:
+\begin{itemize}[leftmargin=2em]
+\item No sustained soak tests for long-running stability.
+\item No throughput or latency benchmark suite.
+\item No fuzz testing for framing parser robustness.
+\item No adversarial replay simulation.
+\item No CI matrix across Linux distributions/kernels.
+\end{itemize}
+
+\section{Suggested Test Roadmap}
+\begin{enumerate}[leftmargin=2em]
+\item Add pytest markers for \texttt{unit}, \texttt{integration}, \texttt{privileged}, \texttt{network}.
+\item Add synthetic packet replay tests once packet IDs are introduced.
+\item Introduce stress harness for packet flood and disconnect/reconnect scenarios.
+\item Capture benchmark outputs (pps, Mbps, latency percentile).
+\item Run shell lint and static checks for script quality.
+\end{enumerate}
+
+\section{Reproducibility Notes}
+To make results reproducible in reports or classrooms, record:
+\begin{itemize}[leftmargin=2em]
+\item Kernel version and distro.
+\item Python version and dependency lock state.
+\item Privilege model (root/container/sudo policy).
+\item Namespace setup mode used.
+\end{itemize}
+
+\section{Trust Boundaries of Tests}
+Passing tests should be interpreted correctly:
+\begin{itemize}[leftmargin=2em]
+\item They validate implementation consistency, not production threat resistance.
+\item They increase confidence in pedagogical correctness.
+\item They do not replace formal cryptographic protocol proofs.
+\end{itemize}
+
+\section{Conclusion}
+Testing quality is strong relative to project size and educational intent. By adding performance and adversarial test dimensions, WhisperTunnel can evolve from a teaching artifact to a robust experimental platform.
